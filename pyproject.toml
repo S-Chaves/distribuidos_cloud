@@ -1,0 +1,25 @@
+[project]
+name = "distribuidos-cloud"
+version = "0.1.0"
+description = ""
+authors = [
+    {name = "S-Chaves",email = "santiagochaves242@gmail.com"}
+]
+readme = "README.md"
+requires-python = ">=3.13, <4.0"
+dependencies = [
+    "flask (>=3.1.2,<4.0.0)",
+    "flask-sqlalchemy (>=3.1.1,<4.0.0)",
+    "flask-migrate (>=4.1.0,<5.0.0)",
+    "psycopg2-binary (>=2.9.11,<3.0.0)",
+    "flask-jwt-extended (>=4.7.1,<5.0.0)",
+    "python-dotenv (>=1.1.1,<2.0.0)",
+    "flasgger (>=0.9.7.1,<0.10.0.0)"
+]
+
+[tool.poetry]
+package-mode = false
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"
