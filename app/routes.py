@@ -163,3 +163,112 @@ def fulfill_commitment(compromiso_id):
     
     return jsonify({"msg": "Compromiso marcado como 'cumplido'"})
 
+@api.route('/proyectos/<int:project_id>/pedidos', methods=['GET'])
+@jwt_required()
+def get_project_pedidos(project_id):
+    """
+    Obtiene todos los pedidos (abiertos y cubiertos) de un proyecto específico.
+    Cualquier ONG autenticada puede ver esta lista.
+    ---
+    tags:
+      - Proyectos
+    security:
+      - bearerAuth: []
+    parameters:
+      - in: path
+        name: project_id
+        description: "El ID del proyecto que se quiere consultar."
+        required: true
+        schema: { type: integer }
+    responses:
+      200:
+        description: Una lista de todos los pedidos para el proyecto.
+        schema:
+          type: array
+          items:
+            properties:
+              id: { type: integer }
+              request_type: { type: string }
+              description: { type: string }
+              amount_requested: { type: number }
+              status: { type: string }
+      404:
+        description: Proyecto no encontrado.
+    """
+    project = ProjectDefinition.query.get(project_id)
+    if not project:
+        return jsonify({"msg": "Proyecto no encontrado"}), 404
+        
+    # Accedemos a los pedidos a través del plan de cobertura
+    pedidos = project.coverage_plan.pedidos
+    
+    results = [
+        {
+            "id": p.id,
+            "request_type": p.request_type,
+            "description": p.description,
+            "amount_requested": p.amount_requested,
+            "status": p.status
+        } for p in pedidos
+    ]
+    
+    return jsonify(results)
+
+@api.route('/proyectos/<int:project_id>/compromisos', methods=['GET'])
+@jwt_required()
+def get_project_compromisos(project_id):
+    """
+    Obtiene todos los compromisos (pendientes y cumplidos) de un proyecto.
+    Solo la ONG dueña del proyecto puede ver esta lista.
+    ---
+    tags:
+      - Proyectos
+    security:
+      - bearerAuth: []
+    parameters:
+      - in: path
+        name: project_id
+        description: "El ID del proyecto para ver sus compromisos."
+        required: true
+        schema: { type: integer }
+    responses:
+      200:
+        description: Una lista de todos los compromisos para el proyecto.
+      403:
+        description: No estás autorizado para ver esta información.
+      404:
+        description: Proyecto no encontrado.
+    """
+    current_ong_id = int(get_jwt_identity())
+    project = ProjectDefinition.query.get(project_id)
+    
+    if not project:
+        return jsonify({"msg": "Proyecto no encontrado"}), 404
+        
+    # Verificación de autorización (usando la navegación simple)
+    if project.creador_ong_id != current_ong_id:
+        return jsonify({"msg": "No estás autorizado para ver los compromisos de este proyecto"}), 403
+
+    results = []
+    
+    # 1. Navegamos al plan de cobertura
+    if not project.coverage_plan:
+        return jsonify(results) # No hay plan, no hay compromisos
+
+    # 2. Navegamos a los pedidos de ese plan
+    pedidos_del_proyecto = project.coverage_plan.pedidos
+    
+    # 3. Recorremos los pedidos y luego sus compromisos
+    for p in pedidos_del_proyecto:
+        for comp in p.compromisos:
+            results.append({
+                "compromiso_id": comp.id,
+                "compromiso_status": comp.status,
+                "details": comp.details,
+                "amount_committed": comp.amount_committed,
+                "pedido_id": p.id,
+                "pedido_description": p.description,
+                "compromiso_ong_name": comp.compromiso_ong.name 
+            })
+        
+    return jsonify(results)
