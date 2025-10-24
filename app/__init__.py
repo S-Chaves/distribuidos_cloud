@@ -17,10 +17,10 @@ def create_app():
     JWTManager(app)
     Swagger(app) # Initialize Flasgger
 
-    from .routes import api
-    app.register_blueprint(api, url_prefix='/api')
+    # from app.routes import api
+    # app.register_blueprint(api, url_prefix='/api')
 
-    from .auth import auth
+    from app.auth import auth
     app.register_blueprint(auth, url_prefix='/auth')
 
     return app
