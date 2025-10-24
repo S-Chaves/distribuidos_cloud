@@ -1,53 +1,165 @@
-# app/routes.py
 from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity
-# from .models import CollaborationRequest, Commitment, NGO
 from . import db
+
+from .models import ONG, ProjectDefinition, WorkPlan, CoveragePlan, PedidoColaboracion, Compromiso
 
 api = Blueprint('api', __name__)
 
-# @api.route('/requests', methods=['GET'])
-# @jwt_required()
-# def get_collaboration_requests():
-#     """
-#     View all open collaboration requests
-#     ---
-#     tags:
-#       - Requests
-#     security:
-#       - bearerAuth: []
-#     responses:
-#       200:
-#         description: A list of open collaboration requests.
-#     """
+@api.route('/pedidos', methods=['GET'])
+@jwt_required()
+def get_pedidos():
+    """
+    Visualización de todos los pedidos de colaboración que están 'abiertos'.
+    Cualquier ONG autenticada puede ver esta lista.
+    ---
+    tags:
+      - Pedidos y Compromisos
+    security:
+      - bearerAuth: []
+    responses:
+      200:
+        description: Una lista de todos los pedidos de colaboración abiertos.
+        schema:
+          type: array
+          items:
+            properties:
+              id: { type: integer }
+              request_type: { type: string }
+              description: { type: string }
+              amount_requested: { type: number }
+              project_name: { type: string }
+              project_country: { type: string }
+              creador_ong_name: { type: string }
+    """
+    # Buscamos todos los pedidos que no estén 'covered'
+    open_pedidos = PedidoColaboracion.query.filter(PedidoColaboracion.status != 'covered').all()
     
-#     # Query the database for all requests with 'open' status
-#     open_requests = CollaborationRequest.query.filter_by(status='open').all()
-    
-#     # Format the data for the JSON response
-#     results = [
-#         {
-#             "id": req.id,
-#             "project_id": req.project_id,
-#             "request_type": req.request_type,
-#             "details": req.details,
-#             "status": req.status
-#         } for req in open_requests
-#     ]
-    
-#     return jsonify(results)
+    results = []
+    for p in open_pedidos:
+        results.append({
+            "id": p.id,
+            "request_type": p.request_type,
+            "description": p.description,
+            "amount_requested": p.amount_requested,
+            "project_name": p.coverage_plan.project.project_name,
+            "project_country": p.coverage_plan.project.country,
+            "creador_ong_name": p.coverage_plan.project.creador_ong.name
+        })
+        
+    return jsonify(results)
 
-# @api.route('/requests/<int:request_id>/commit', methods=['POST'])
-# @jwt_required()
-# def make_commitment(request_id):
-#     """Endpoint for an NGO to commit to a request."""
-#     # Logic to create a new Commitment in the database
-#     current_ngo_id = get_jwt_identity()
-#     return jsonify({"message": f"Commitment made to request {request_id} by NGO {current_ngo_id}"})
+@api.route('/pedidos/<int:pedido_id>/comprometerse', methods=['POST'])
+@jwt_required()
+def make_commitment(pedido_id):
+    """
+    Permite a una ONG (que NO es dueña del proyecto) crear un compromiso 
+    para ayudar con un pedido específico.
+    ---
+    tags:
+      - Pedidos y Compromisos
+    security:
+      - bearerAuth: []
+    parameters:
+      - in: path
+        name: pedido_id
+        description: "El ID del pedido al que se quiere ayudar."
+        required: true
+        schema: { type: integer }
+      - in: body
+        name: body
+        required: true
+        schema:
+          properties:
+            details:
+              type: string
+              example: "Puedo donar 50 bolsas de cemento la próxima semana."
+            amount_committed:
+              type: number
+              example: 50
+    responses:
+      201:
+        description: Compromiso creado exitosamente.
+      403:
+        description: No puedes comprometerte a un pedido de tu propio proyecto.
+      404:
+        description: Pedido no encontrado o ya está cubierto.
+    """
+    current_ong_id = int(get_jwt_identity())
+    
+    # Buscamos el pedido
+    pedido = PedidoColaboracion.query.get(pedido_id)
 
-# @api.route('/commitments/<int:commitment_id>/fulfill', methods=['PATCH'])
-# @jwt_required()
-# def fulfill_commitment(commitment_id):
-#     """Endpoint to mark a commitment as fulfilled."""
-#     # Logic to update the status of a specific Commitment
-#     return jsonify({"message": f"Commitment {commitment_id} marked as fulfilled"})
+    if not pedido or pedido.status != 'open':
+        return jsonify({"msg": "Pedido no encontrado o ya está cubierto"}), 404
+        
+    # Verificamos que la ONG que ayuda no sea la misma que creó el proyecto
+    if pedido.coverage_plan.project.creador_ong_id == current_ong_id:
+        return jsonify({"msg": "No puedes comprometerte a un pedido de tu propio proyecto"}), 403
+
+    data = request.get_json()
+    if not data or 'details' not in data or 'amount_committed' not in data:
+        return jsonify({"msg": "Faltan los campos 'details' y 'amount_committed'"}), 400
+
+    new_compromiso = Compromiso(
+        pedido_id=pedido.id,
+        ong_id=current_ong_id,
+        details=data.get('details'),
+        amount_committed=data.get('amount_committed'),
+        status='pending' # El compromiso inicia como 'pendiente'
+    )
+    db.session.add(new_compromiso)
+    db.session.commit()
+    
+    return jsonify({
+        "msg": "Compromiso creado exitosamente", 
+        "compromiso_id": new_compromiso.id
+    }), 201
+
+@api.route('/compromisos/<int:compromiso_id>/cumplido', methods=['PUT'])
+@jwt_required()
+def fulfill_commitment(compromiso_id):
+    """
+    Marca un compromiso como 'cumplido' (fulfilled).
+    Solo la ONG dueña del proyecto puede marcar un compromiso como cumplido.
+    ---
+    tags:
+      - Pedidos y Compromisos
+    security:
+      - bearerAuth: []
+    parameters:
+      - in: path
+        name: compromiso_id
+        description: "El ID del compromiso a marcar como cumplido."
+        required: true
+        schema: { type: integer }
+    responses:
+      200:
+        description: Compromiso marcado como 'cumplido'.
+      403:
+        description: No tienes permiso para aprobar este compromiso (solo el dueño del proyecto puede).
+      404:
+        description: Compromiso no encontrado.
+    """
+    current_ong_id = int(get_jwt_identity())
+    
+    # Buscamos el compromiso
+    compromiso = Compromiso.query.get(compromiso_id)
+    
+    if not compromiso:
+        return jsonify({"msg": "Compromiso no encontrado"}), 404
+    
+    # Verificación de Permiso: 
+    # El ID del usuario (token) debe ser igual al ID del creador del proyecto
+    project_owner_id = compromiso.pedido.coverage_plan.project.creador_ong_id
+    if project_owner_id != current_ong_id:
+        return jsonify({"msg": "No tienes permiso para aprobar este compromiso"}), 403
+
+    # Actualizamos el estado
+    compromiso.status = 'fulfilled'
+    db.session.add(compromiso)
+    
+    db.session.commit()
+    
+    return jsonify({"msg": "Compromiso marcado como 'cumplido'"})
+

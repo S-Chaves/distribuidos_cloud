@@ -1,7 +1,7 @@
 from flask import Blueprint, request, jsonify
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask_jwt_extended import create_access_token
-from app.models import ONG
+from app.models.ong import ONG
 from . import db
 
 auth = Blueprint('auth', __name__)
@@ -47,13 +47,12 @@ def login():
     ong = ONG.query.filter_by(name=name).first()
 
     # Verificamos si la ONG existe y si el hash de la contraseña coincide
-    if ong and check_password_hash(ong.password_hash, password):
+    if ong and check_password_hash(ong.password, password):
         # Creamos el token de acceso, identificando al usuario por su ID
-        access_token = create_access_token(identity=ong.id)
+        access_token = create_access_token(identity=str(ong.id))
         return jsonify(access_token=access_token)
 
     return jsonify({"msg": "Nombre de ONG o contraseña incorrectos"}), 401
-
 
 @auth.route('/register', methods=['POST'])
 def register():
@@ -100,7 +99,7 @@ def register():
     hashed_password = generate_password_hash(password, method='pbkdf2:sha256')
     
     # Creamos la nueva instancia de la ONG
-    new_ong = ONG(name=name, password_hash=hashed_password)
+    new_ong = ONG(name=name, password=hashed_password)
     
     # Añadimos la nueva ONG a la sesión de la db y guardamos cambios
     db.session.add(new_ong)
