@@ -14,7 +14,8 @@ dependencies = [
     "psycopg2-binary (>=2.9.11,<3.0.0)",
     "flask-jwt-extended (>=4.7.1,<5.0.0)",
     "python-dotenv (>=1.1.1,<2.0.0)",
-    "flasgger (>=0.9.7.1,<0.10.0.0)"
+    "flasgger (>=0.9.7.1,<0.10.0.0)",
+    "gunicorn (>=22.0,<23.0)"
 ]
 
 [tool.poetry]
