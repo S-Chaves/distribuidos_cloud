@@ -25,4 +25,4 @@ COPY . .
 
 EXPOSE 8000
 
-CMD gunicorn wsgi:app -b 0.0.0.0:${PORT:-8000}
+CMD ["/app/entrypoint.sh"]
