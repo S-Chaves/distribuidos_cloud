@@ -251,14 +251,11 @@ def get_project_compromisos(project_id):
 
     results = []
     
-    # 1. Navegamos al plan de cobertura
     if not project.coverage_plan:
         return jsonify(results) # No hay plan, no hay compromisos
 
-    # 2. Navegamos a los pedidos de ese plan
     pedidos_del_proyecto = project.coverage_plan.pedidos
     
-    # 3. Recorremos los pedidos y luego sus compromisos
     for p in pedidos_del_proyecto:
         for comp in p.compromisos:
             results.append({
