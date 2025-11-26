@@ -49,7 +49,7 @@ def get_pedidos():
         
     return jsonify(results)
 
-@api.route('/pedidos/<int:pedido_id>/comprometerse', methods=['POST'])
+@api.route('/pedidos/<int:pedido_id>/compromiso', methods=['POST'])
 @jwt_required()
 def make_commitment(pedido_id):
     """
