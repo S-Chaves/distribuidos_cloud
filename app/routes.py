@@ -397,15 +397,13 @@ def create_project():
         ong_name=ong.name,
         **{key: data[key] for key in required_fields if key != 'stages'}
     )
-    db.session.add(new_project)
-    db.session.flush()  # Para obtener el ID del proyecto antes del commit
-
-    work_plan = WorkPlan(project_id=new_project.id, stages=data['stages'])
-    coverage_plan = CoveragePlan(project_id=new_project.id, strategy="Plan de cobertura inicial.")
     
-    db.session.add_all([work_plan, coverage_plan])
+    # Asignar los planes directamente al proyecto usando la relación
+    new_project.work_plan = WorkPlan(stages=data['stages'])
+    new_project.coverage_plan = CoveragePlan(strategy="Plan de cobertura inicial.")
+    
+    db.session.add(new_project)
     db.session.commit()
-    db.session.refresh(new_project)
     
     return jsonify({"msg": "Proyecto creado exitosamente", "project_id": new_project.id}), 201
 
