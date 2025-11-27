@@ -163,6 +163,44 @@ def fulfill_commitment(compromiso_id):
     
     return jsonify({"msg": "Compromiso marcado como 'cumplido'"})
 
+@api.route('/proyectos', methods=['GET'])
+@jwt_required()
+def get_projects():
+    """
+    Obtiene una lista de todos los proyectos registrados.
+    Cualquier ONG autenticada puede ver esta lista.
+    ---
+    tags:
+      - Proyectos
+    security:
+      - bearerAuth: []
+    responses:
+      200:
+        description: Una lista de todos los proyectos.
+        schema:
+          type: array
+          items:
+            properties:
+              id: { type: integer }
+              project_name: { type: string }
+              ong_name: { type: string }
+              description: { type: string }
+              country: { type: string }
+    """
+    projects = ProjectDefinition.query.order_by(ProjectDefinition.created_at.desc()).all()
+    
+    results = [
+        {
+            "id": p.id,
+            "project_name": p.project_name,
+            "ong_name": p.ong_name,
+            "description": p.description,
+            "country": p.country,
+        } for p in projects
+    ]
+        
+    return jsonify(results)
+
 @api.route('/proyectos/<int:project_id>/pedidos', methods=['GET'])
 @jwt_required()
 def get_project_pedidos(project_id):
