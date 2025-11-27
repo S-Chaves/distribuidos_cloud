@@ -28,80 +28,12 @@ def seed_db_command():
             ong_colaboradora = ONG(name="ong_red", password=hashed_pass_2)
             db.session.add(ong_colaboradora)
             
-        db.session.commit()
-
-        # 3. Comprobar si el Proyecto de prueba ya existe
-        proyecto = ProjectDefinition.query.filter_by(project_name="Proyecto de Agua Potable").first()
-        if not proyecto:
-            print("Creando Proyecto de prueba...")
-            proyecto = ProjectDefinition(
-                creador_ong_id=ong_creadora.id,
-                project_name="Proyecto de Agua Potable",
-                ong_name="ong_originante",
-                description="Instalación de sistema de purificación en comunidad.",
-                country="Argentina",
-                location="Provincia de Buenos Aires",
-                project_types=["Agua", "Infraestructura"],
-                budget=50000.0,
-                duration=6, # 6 meses
-                objectives="Proveer agua limpia a 100 familias.",
-                beneficiaries="Comunidad local de 300 personas.",
-                created_at=datetime.now()
-            )
-            db.session.add(proyecto)
-            db.session.commit()
-
-            # 4. Crear Planes (asumimos que si el proyecto es nuevo, los planes también)
-            print("Creando Planes de Trabajo y Cobertura...")
-            work_plan = WorkPlan(
-                project_id=proyecto.id,
-                stages=[{"name": "Etapa 1: Relevamiento", "start": "2025-11-01", "end": "2025-11-15"}],
-                monitoring_plan="Seguimiento semanal."
-            )
-            
-            coverage_plan = CoveragePlan(
-                project_id=proyecto.id,
-                strategy="Buscar donaciones de materiales y fondos."
-            )
-            db.session.add(work_plan)
-            db.session.add(coverage_plan)
-            db.session.commit()
-
-            # 5. Crear Pedidos (asumimos que si el proyecto es nuevo, los pedidos también)
-            print("Creando Pedidos de Colaboración...")
-            pedido_1 = PedidoColaboracion(
-                coverage_plan_id=coverage_plan.id,
-                request_type="materiales",
-                description="100 bolsas de cemento",
-                amount_requested=100,
-                status='open'
-            )
-            
-            pedido_2 = PedidoColaboracion(
-                coverage_plan_id=coverage_plan.id,
-                request_type="dinero",
-                description="Fondos para transporte",
-                amount_requested=2500.0,
-                status='open'
-            )
-            
-            pedido_3 = PedidoColaboracion(
-                coverage_plan_id=coverage_plan.id,
-                request_type="mano de obra",
-                description="Voluntarios para construcción",
-                amount_requested=10,
-                status='covered'
-            )
-            
-            db.session.add_all([pedido_1, pedido_2, pedido_3])
-            db.session.commit()
             
             print("-----------------------------------------")
             print("¡Base de datos sembrada con éxito!")
             print("\nUsuarios de prueba:")
             print(f"  ONG Creadora:    name='{ong_creadora.name}', password='pass123'")
             print(f"  ONG Colaboradora: name='{ong_colaboradora.name}', password='pass456'")
-            print("\nPedidos abiertos creados: 2")
             print("-----------------------------------------")
         
         else:

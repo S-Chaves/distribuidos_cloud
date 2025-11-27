@@ -71,11 +71,11 @@ def register():
             name:
               type: string
               description: "El nombre deseado para la nueva ONG."
-              example: "prueba_ong"
+              example: "ong_originante"
             password:
               type: string
               description: "La contraseña para la nueva ONG."
-              example: "password123"
+              example: "pass123"
     responses:
       201:
         description: ONG creada exitosamente.
