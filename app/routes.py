@@ -214,6 +214,162 @@ def get_project_pedidos(project_id):
     
     return jsonify(results)
 
+@api.route('/proyectos/<int:project_id>/pedido', methods=['POST'])
+@jwt_required()
+def add_project_pedido(project_id):
+    """
+    Crea un nuevo pedido de colaboración para un proyecto específico.
+    Solo la ONG dueña del proyecto puede añadir pedidos.
+    ---
+    tags:
+      - Proyectos
+    security:
+      - bearerAuth: []
+    parameters:
+      - in: path
+        name: project_id
+        description: "El ID del proyecto al que se le añadirá el pedido."
+        required: true
+        schema: { type: integer }
+      - in: body
+        name: body
+        required: true
+        schema:
+          properties:
+            request_type:
+              type: string
+              example: "materiales"
+            description:
+              type: string
+              example: "Necesitamos 150 bolsas de cemento para la fase 2."
+            amount_requested:
+              type: number
+              example: 150
+    responses:
+      201:
+        description: Pedido de colaboración creado exitosamente.
+      400:
+        description: Faltan datos en el cuerpo de la solicitud.
+      403:
+        description: No tienes permiso para añadir pedidos a este proyecto.
+      404:
+        description: Proyecto no encontrado o no tiene un plan de cobertura.
+    """
+    current_ong_id = int(get_jwt_identity())
+    project = ProjectDefinition.query.get(project_id)
+
+    if not project:
+        return jsonify({"msg": "Proyecto no encontrado"}), 404
+
+    if project.creador_ong_id != current_ong_id:
+        return jsonify({"msg": "No tienes permiso para añadir pedidos a este proyecto"}), 403
+
+    if not project.coverage_plan:
+        return jsonify({"msg": "El proyecto no tiene un plan de cobertura para asociar el pedido"}), 404
+
+    data = request.get_json()
+    if not data or 'request_type' not in data or 'description' not in data or 'amount_requested' not in data:
+        return jsonify({"msg": "Faltan los campos 'request_type', 'description' y 'amount_requested'"}), 400
+
+    new_pedido = PedidoColaboracion(
+        coverage_plan_id=project.coverage_plan.id,
+        request_type=data['request_type'],
+        description=data['description'],
+        amount_requested=data['amount_requested'],
+        status='open'
+    )
+    db.session.add(new_pedido)
+    db.session.commit()
+
+    return jsonify({"msg": "Pedido creado exitosamente", "pedido_id": new_pedido.id}), 201
+
+@api.route('/proyectos', methods=['POST'])
+@jwt_required()
+def create_project():
+    """
+    Crea un nuevo proyecto con su plan de trabajo y cobertura inicial.
+    La ONG que crea el proyecto es la que está autenticada.
+    ---
+    tags:
+      - Proyectos
+    security:
+      - bearerAuth: []
+    parameters:
+      - in: body
+        name: body
+        required: true
+        schema:
+          properties:
+            project_name:
+              type: string
+              example: "Construcción de Escuela Rural"
+            description:
+              type: string
+              example: "Proyecto para construir una escuela primaria en la comunidad de San Juan."
+            country:
+              type: string
+              example: "Colombia"
+            location:
+              type: string
+              example: "Departamento de Cundinamarca"
+            project_types:
+              type: array
+              items: { type: string }
+              example: ["Educación", "Infraestructura"]
+            budget:
+              type: number
+              example: 75000
+            duration:
+              type: integer
+              example: 12
+            objectives:
+              type: string
+              example: "Brindar acceso a educación a 200 niños."
+            beneficiaries:
+              type: string
+              example: "Comunidad de San Juan, con un enfoque en niños de 6 a 12 años."
+            stages:
+              type: array
+              items: { type: object }
+              example: [{"name": "Fase 1: Cimentación", "start": "2026-01-15", "end": "2026-03-15"}]
+    responses:
+      201:
+        description: Proyecto creado exitosamente.
+      400:
+        description: Faltan datos requeridos en el cuerpo de la solicitud.
+      404:
+        description: ONG del token no encontrada.
+    """
+    current_ong_id = int(get_jwt_identity())
+    data = request.get_json()
+
+    required_fields = [
+        'project_name', 'description', 'country', 'location', 'budget', 
+        'duration', 'objectives', 'beneficiaries', 'stages'
+    ]
+    if not data or not all(field in data for field in required_fields):
+        return jsonify({"msg": "Faltan datos requeridos para crear el proyecto"}), 400
+
+    ong = ONG.query.get(current_ong_id)
+    if not ong:
+        return jsonify({"msg": "ONG no encontrada"}), 404
+
+    new_project = ProjectDefinition(
+        creador_ong_id=current_ong_id,
+        ong_name=ong.name,
+        **{key: data[key] for key in required_fields if key != 'stages'}
+    )
+    db.session.add(new_project)
+    db.session.flush()  # Para obtener el ID del proyecto antes del commit
+
+    work_plan = WorkPlan(project_id=new_project.id, stages=data['stages'])
+    coverage_plan = CoveragePlan(project_id=new_project.id, strategy="Plan de cobertura inicial.")
+    
+    db.session.add_all([work_plan, coverage_plan])
+    db.session.commit()
+
+    return jsonify({"msg": "Proyecto creado exitosamente", "project_id": new_project.id}), 201
+
 @api.route('/proyectos/<int:project_id>/compromisos', methods=['GET'])
 @jwt_required()
 def get_project_compromisos(project_id):

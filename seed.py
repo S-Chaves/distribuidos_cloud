@@ -13,31 +13,31 @@ def seed_db_command():
     # Comprobamos si los datos ya existen para no duplicar.
     try:
         # 1. Comprobar si la ONG creadora ya existe
-        ong_creadora = ONG.query.filter_by(name="ONG-Creadora-Test").first()
+        ong_creadora = ONG.query.filter_by(name="ong_originante").first()
         if not ong_creadora:
             print("Creando ONG Creadora de prueba...")
             hashed_pass_1 = generate_password_hash('pass123', method='pbkdf2:sha256')
-            ong_creadora = ONG(name="ONG-Creadora-Test", password=hashed_pass_1)
+            ong_creadora = ONG(name="ong_originante", password=hashed_pass_1)
             db.session.add(ong_creadora)
 
         # 2. Comprobar si la ONG colaboradora ya existe
-        ong_colaboradora = ONG.query.filter_by(name="ONG-Colaboradora-Test").first()
+        ong_colaboradora = ONG.query.filter_by(name="ong_red").first()
         if not ong_colaboradora:
             print("Creando ONG Colaboradora de prueba...")
             hashed_pass_2 = generate_password_hash('pass456', method='pbkdf2:sha256')
-            ong_colaboradora = ONG(name="ONG-Colaboradora-Test", password=hashed_pass_2)
+            ong_colaboradora = ONG(name="ong_red", password=hashed_pass_2)
             db.session.add(ong_colaboradora)
             
         db.session.commit()
 
         # 3. Comprobar si el Proyecto de prueba ya existe
-        proyecto = ProjectDefinition.query.filter_by(project_name="Proyecto de Agua Potable - Test").first()
+        proyecto = ProjectDefinition.query.filter_by(project_name="Proyecto de Agua Potable").first()
         if not proyecto:
             print("Creando Proyecto de prueba...")
             proyecto = ProjectDefinition(
                 creador_ong_id=ong_creadora.id,
-                project_name="Proyecto de Agua Potable - Test",
-                ong_name="ONG-Creadora-Test",
+                project_name="Proyecto de Agua Potable",
+                ong_name="ong_originante",
                 description="Instalación de sistema de purificación en comunidad.",
                 country="Argentina",
                 location="Provincia de Buenos Aires",
