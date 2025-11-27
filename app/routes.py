@@ -405,7 +405,8 @@ def create_project():
     
     db.session.add_all([work_plan, coverage_plan])
     db.session.commit()
-
+    db.session.refresh(new_project)
+    
     return jsonify({"msg": "Proyecto creado exitosamente", "project_id": new_project.id}), 201
 
 @api.route('/proyectos/<int:project_id>/compromisos', methods=['GET'])
